@@ -27,10 +27,10 @@ from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch
 
 device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
 
-files_dir = "lgg-mri-segmentation/lgg-mri-segmentation/kaggle_3m/"
+files_dir = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m"
 file_paths = glob(f"{files_dir}/*/*[0-9].tif")
 
-csv_path = "/kaggle/input/lgg-mri-segmentation/lgg-mri-segmentation/kaggle_3m/data.csv"
+csv_path = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m/data.csv"
 df = pd.read_csv(csv_path)
 
 imputer = SimpleImputer(strategy="most_frequent")
@@ -69,7 +69,7 @@ test_loader = DataLoader(test_dataset, batch_size=1)
 
 
 model = smp.Unet(
-    encoder_name="efficientnet-b7",
+    encoder_name="resnet18",
     encoder_weights="imagenet",
     in_channels=3,
     classes=1,
