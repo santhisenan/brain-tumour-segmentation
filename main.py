@@ -24,8 +24,7 @@ from utils import get_file_row
 from data import MriDataset
 from optimization import EarlyStopping
 from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch
-
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+from config import device, batch_size, epochs, learning_rate, model_save_path
 
 files_dir = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m"
 file_paths = glob(f"{files_dir}/*/*[0-9].tif")
@@ -61,8 +60,6 @@ train_dataset = MriDataset(train_df, transform)
 valid_dataset = MriDataset(valid_df)
 test_dataset = MriDataset(test_df)
 
-batch_size = 16
-
 train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
 test_loader = DataLoader(test_dataset, batch_size=1)
@@ -85,8 +82,6 @@ def training_loop(
     early_stopping = EarlyStopping(patience=7)
 
     for epoch in range(1, epochs + 1):
-        start_time = time.time()
-
         running_loss = 0
         model.train()
         for i, data in enumerate(tqdm(train_loader)):
@@ -137,12 +132,24 @@ def training_loop(
 
 
 loss_fn = BCE_dice
-optimizer = Adam(model.parameters(), lr=0.001)
-epochs = 60
+optimizer = Adam(model.parameters(), lr=learning_rate)
 lr_scheduler = ReduceLROnPlateau(optimizer=optimizer, patience=2, factor=0.2)
 
 history = training_loop(
     epochs, model, train_loader, valid_loader, optimizer, loss_fn, lr_scheduler
 )
+
+model_export = {
+    "model_state_dict": model.state_dict(),
+    "optimizer_state_dict": optimizer.state_dict(),
+    "history": history,
+    "hyperparams": {
+        "batch_size": batch_size,
+        "epochs": epochs,
+        "learning_rate": learning_rate,
+    },
+}
+
+torch.save(model_export, model_save_path)
 
 print(history)
