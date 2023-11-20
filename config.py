@@ -1,4 +1,5 @@
 import torch
+from pathlib import Path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -7,4 +8,4 @@ epochs = 50
 learning_rate = 0.001
 
 # PATHS
-model_save_path = "./outputs/model.pth"
+output_path = Path("./outputs/")
