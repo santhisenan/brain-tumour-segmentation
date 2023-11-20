@@ -1,5 +1,4 @@
 import time
-import json
 import logging
 
 from tqdm import tqdm
@@ -14,7 +13,15 @@ from torchmetrics.classification import Dice
 from data import get_dataloaders
 from optimization import EarlyStopping
 from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch, save_results
-from config import device, batch_size, epochs, learning_rate, output_path
+from config import (
+    device,
+    batch_size,
+    epochs,
+    learning_rate,
+    output_path,
+    model_name,
+    encoder_name,
+)
 from model import get_model
 
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=logging.INFO)
@@ -23,7 +30,7 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 train_loader, valid_loader, test_loader = get_dataloaders(batch_size)
-model = get_model()
+model = get_model(model_name=model_name, encoder_name=encoder_name)
 
 
 def training_loop(
