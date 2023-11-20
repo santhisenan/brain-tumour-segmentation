@@ -1,6 +1,6 @@
 weights.pt
 model*.pth
-log.txt
+log*.txt
 nohup.out
 outputs/
 
