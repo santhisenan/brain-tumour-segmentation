@@ -20,6 +20,9 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms as T
 
+from torchmetrics.classification import Dice
+# from torchmetrics.functional.classification import dice
+
 from utils import get_file_row
 from data import MriDataset
 from optimization import EarlyStopping
@@ -74,11 +77,19 @@ model = smp.Unet(
 )
 model.to(device)
 
+print(f"Loaded model into device {device}")
+
 
 def training_loop(
     epochs, model, train_loader, valid_loader, optimizer, loss_fn, lr_scheduler
 ):
-    history = {"train_loss": [], "val_loss": [], "val_IoU": [], "val_dice": []}
+    history = {
+        "train_loss": [],
+        "val_loss": [],
+        "val_IoU": [],
+        "val_dice": [],
+        "num_epochs_trained": 0,
+    }
     early_stopping = EarlyStopping(patience=7)
 
     for epoch in range(1, epochs + 1):
@@ -86,10 +97,12 @@ def training_loop(
         model.train()
         for i, data in enumerate(tqdm(train_loader)):
             img, mask = data
-            img, mask = img.to(device), mask.to(device)
+            img, mask = img.to(device), mask.int().to(device)
             predictions = model(img)
             predictions = predictions.squeeze(1)
             loss = loss_fn(predictions, mask)
+            loss.requires_grad = True
+
             running_loss += loss.item() * img.size(0)
             loss.backward()
             optimizer.step()
@@ -102,7 +115,7 @@ def training_loop(
             running_valid_loss = 0
             for i, data in enumerate(valid_loader):
                 img, mask = data
-                img, mask = img.to(device), mask.to(device)
+                img, mask = img.to(device), mask.int().to(device)
                 predictions = model(img)
                 predictions = predictions.squeeze(1)
                 running_dice += dice_pytorch(predictions, mask).sum().item()
@@ -118,6 +131,7 @@ def training_loop(
         history["val_loss"].append(val_loss)
         history["val_IoU"].append(val_IoU)
         history["val_dice"].append(val_dice)
+        history["num_epochs_trained"] = epoch
         print(
             f"Epoch: {epoch}/{epochs} | Training loss: {train_loss} | Validation loss: {val_loss} | Validation Mean IoU: {val_IoU} "
             f"| Validation Dice coefficient: {val_dice}"
@@ -126,12 +140,16 @@ def training_loop(
         lr_scheduler.step(val_loss)
         if early_stopping(val_loss, model):
             early_stopping.load_weights(model)
+            print(f"Stopping after epoch {epoch}")
             break
     model.eval()
     return history
 
 
-loss_fn = BCE_dice
+# loss_fn = BCE_dice
+loss_fn = Dice().to(device)
+loss_fn.requires_grad = True
+
 optimizer = Adam(model.parameters(), lr=learning_rate)
 lr_scheduler = ReduceLROnPlateau(optimizer=optimizer, patience=2, factor=0.2)
 
@@ -148,6 +166,7 @@ model_export = {
         "epochs": epochs,
         "learning_rate": learning_rate,
     },
+    "loss_function": "BCE Dice",
 }
 
 torch.save(model_export, model_save_path)
