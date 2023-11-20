@@ -1,1 +1,1 @@
-nohup python main.py > log.txt &
+nohup python main.py > log1.txt &

@@ -21,6 +21,7 @@ from config import (
     output_path,
     model_name,
     encoder_name,
+    tag,
 )
 from model import get_model
 
@@ -112,6 +113,7 @@ loss_fn = BCE_dice
 optimizer = Adam(model.parameters(), lr=learning_rate)
 lr_scheduler = ReduceLROnPlateau(optimizer=optimizer, patience=2, factor=0.2)
 
+LOGGER.info(f"Training for {tag}")
 history = training_loop(
     epochs, model, train_loader, valid_loader, optimizer, loss_fn, lr_scheduler
 )
@@ -128,7 +130,7 @@ model_export = {
     "loss_function": "BCE Dice",
 }
 
-model_output_dir = output_path / f"model-{time.strftime('%Y%m%d-%H%M%S')}"
+model_output_dir = output_path / f"{tag}-{time.strftime('%Y%m%d-%H%M%S')}"
 model_output_dir.mkdir()
 torch.save(model_export, model_output_dir / "model.pth")
 LOGGER.info(f"Saved checkpoint to {model_output_dir}")
