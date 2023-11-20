@@ -1,7 +1,11 @@
 import os
 import time
 from glob import glob
+import json
+import logging
+
 from tqdm import tqdm
+from tqdm.contrib.logging import logging_redirect_tqdm
 
 import cv2
 import numpy as np
@@ -28,6 +32,9 @@ from data import MriDataset
 from optimization import EarlyStopping
 from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch
 from config import device, batch_size, epochs, learning_rate, model_save_path
+
+
+LOGGER = logging.getLogger(__name__)
 
 files_dir = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m"
 file_paths = glob(f"{files_dir}/*/*[0-9].tif")
@@ -77,7 +84,7 @@ model = smp.Unet(
 )
 model.to(device)
 
-print(f"Loaded model into device {device}")
+LOGGER.info(f"Loaded model into device {device}")
 
 
 def training_loop(
@@ -92,57 +99,59 @@ def training_loop(
     }
     early_stopping = EarlyStopping(patience=7)
 
-    for epoch in range(1, epochs + 1):
-        running_loss = 0
-        model.train()
-        for i, data in enumerate(tqdm(train_loader)):
-            img, mask = data
-            img, mask = img.to(device), mask.int().to(device)
-            predictions = model(img)
-            predictions = predictions.squeeze(1)
-            loss = loss_fn(predictions, mask)
-            loss.requires_grad = True
-
-            running_loss += loss.item() * img.size(0)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-
-        model.eval()
-        with torch.no_grad():
-            running_IoU = 0
-            running_dice = 0
-            running_valid_loss = 0
-            for i, data in enumerate(valid_loader):
+    with logging_redirect_tqdm():
+        for epoch in range(1, epochs + 1):
+            running_loss = 0
+            model.train()
+            for i, data in enumerate(tqdm(train_loader)):
                 img, mask = data
                 img, mask = img.to(device), mask.int().to(device)
                 predictions = model(img)
                 predictions = predictions.squeeze(1)
-                running_dice += dice_pytorch(predictions, mask).sum().item()
-                running_IoU += iou_pytorch(predictions, mask).sum().item()
                 loss = loss_fn(predictions, mask)
-                running_valid_loss += loss.item() * img.size(0)
-        train_loss = running_loss / len(train_loader.dataset)
-        val_loss = running_valid_loss / len(valid_loader.dataset)
-        val_dice = running_dice / len(valid_loader.dataset)
-        val_IoU = running_IoU / len(valid_loader.dataset)
+                loss.requires_grad = True
 
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
-        history["val_IoU"].append(val_IoU)
-        history["val_dice"].append(val_dice)
-        history["num_epochs_trained"] = epoch
-        print(
-            f"Epoch: {epoch}/{epochs} | Training loss: {train_loss} | Validation loss: {val_loss} | Validation Mean IoU: {val_IoU} "
-            f"| Validation Dice coefficient: {val_dice}"
-        )
+                running_loss += loss.item() * img.size(0)
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
 
-        lr_scheduler.step(val_loss)
-        if early_stopping(val_loss, model):
-            early_stopping.load_weights(model)
-            print(f"Stopping after epoch {epoch}")
-            break
-    model.eval()
+            model.eval()
+            with torch.no_grad():
+                running_IoU = 0
+                running_dice = 0
+                running_valid_loss = 0
+                for i, data in enumerate(valid_loader):
+                    img, mask = data
+                    img, mask = img.to(device), mask.int().to(device)
+                    predictions = model(img)
+                    predictions = predictions.squeeze(1)
+                    running_dice += dice_pytorch(predictions, mask).sum().item()
+                    running_IoU += iou_pytorch(predictions, mask).sum().item()
+                    loss = loss_fn(predictions, mask)
+                    running_valid_loss += loss.item() * img.size(0)
+            train_loss = running_loss / len(train_loader.dataset)
+            val_loss = running_valid_loss / len(valid_loader.dataset)
+            val_dice = running_dice / len(valid_loader.dataset)
+            val_IoU = running_IoU / len(valid_loader.dataset)
+
+            history["train_loss"].append(train_loss)
+            history["val_loss"].append(val_loss)
+            history["val_IoU"].append(val_IoU)
+            history["val_dice"].append(val_dice)
+            history["num_epochs_trained"] = epoch
+            LOGGER.info(
+                f"Epoch: {epoch}/{epochs} | Training loss: {train_loss} | Validation loss: {val_loss} | Validation Mean IoU: {val_IoU} "
+                f"| Validation Dice coefficient: {val_dice}"
+            )
+
+            lr_scheduler.step(val_loss)
+            if early_stopping(val_loss, model):
+                early_stopping.load_weights(model)
+                LOGGER.info(f"Stopping after epoch {epoch}")
+                break
+        model.eval()
+
     return history
 
 
@@ -171,4 +180,4 @@ model_export = {
 
 torch.save(model_export, model_save_path)
 
-print(history)
+LOGGER.info("Results\n", json.dumps(history))
