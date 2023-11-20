@@ -10,4 +10,4 @@ Dataset used: https://www.kaggle.com/datasets/mateuszbuda/lgg-mri-segmentation
   - [-] MRF
   - [-] Connected components analysis
 - [-] Try different loss functions
-
+- [-] Try different data augmentation techniques

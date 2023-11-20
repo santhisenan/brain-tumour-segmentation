@@ -1,7 +1,16 @@
+from glob import glob
+
 import torch
-from torch.utils.data import Dataset
-import cv2
 from torchvision import transforms as T
+from torch.utils.data import Dataset, DataLoader
+import albumentations as A
+
+import cv2
+import pandas as pd
+from sklearn.impute import SimpleImputer
+from sklearn.model_selection import train_test_split
+
+from utils import get_file_row
 
 
 class MriDataset(Dataset):
@@ -30,3 +39,43 @@ class MriDataset(Dataset):
         mask = mask // 255
         mask = torch.Tensor(mask)
         return img, mask
+
+
+def get_dataloaders(batch_size):
+    files_dir = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m"
+    file_paths = glob(f"{files_dir}/*/*[0-9].tif")
+
+    csv_path = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m/data.csv"
+    df = pd.read_csv(csv_path)
+
+    imputer = SimpleImputer(strategy="most_frequent")
+
+    df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
+
+    filenames_df = pd.DataFrame(
+        (get_file_row(filename) for filename in file_paths),
+        columns=["Patient", "image_filename", "mask_filename"],
+    )
+
+    df = pd.merge(df, filenames_df, on="Patient")
+
+    train_df, test_df = train_test_split(df, test_size=0.3)
+    test_df, valid_df = train_test_split(test_df, test_size=0.5)
+
+    transform = A.Compose(
+        [
+            A.ChannelDropout(p=0.3),
+            A.RandomBrightnessContrast(p=0.3),
+            A.ColorJitter(p=0.3),
+        ]
+    )
+
+    train_dataset = MriDataset(train_df, transform)
+    valid_dataset = MriDataset(valid_df)
+    test_dataset = MriDataset(test_df)
+
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size)
+
+    return train_loader, valid_loader, test_loader

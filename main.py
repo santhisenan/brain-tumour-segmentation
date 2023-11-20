@@ -1,90 +1,27 @@
-import os
 import time
-from glob import glob
 import json
 import logging
 
 from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 
-import cv2
-import numpy as np
-import pandas as pd
-import matplotlib.patches as mpatches
-import matplotlib.pyplot as plt
-import albumentations as A
-from scipy.ndimage.morphology import binary_dilation
-import segmentation_models_pytorch as smp
-from sklearn.impute import SimpleImputer
-from sklearn.model_selection import train_test_split
-
 import torch
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from torch.utils.data import Dataset, DataLoader
-from torchvision import transforms as T
 
 from torchmetrics.classification import Dice
-# from torchmetrics.functional.classification import dice
 
-from utils import get_file_row
-from data import MriDataset
+from data import get_dataloaders
 from optimization import EarlyStopping
-from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch
-from config import device, batch_size, epochs, learning_rate, model_save_path
-
+from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch, save_results
+from config import device, batch_size, epochs, learning_rate, output_path
+from model import get_model
 
 LOGGER = logging.getLogger(__name__)
+LOGGER.setLevel(logging.INFO)
 
-files_dir = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m"
-file_paths = glob(f"{files_dir}/*/*[0-9].tif")
-
-csv_path = "/data/santhise001/datasets/lgg-segmentation/kaggle_3m/data.csv"
-df = pd.read_csv(csv_path)
-
-imputer = SimpleImputer(strategy="most_frequent")
-
-df = pd.DataFrame(imputer.fit_transform(df), columns=df.columns)
-
-
-filenames_df = pd.DataFrame(
-    (get_file_row(filename) for filename in file_paths),
-    columns=["Patient", "image_filename", "mask_filename"],
-)
-
-
-df = pd.merge(df, filenames_df, on="Patient")
-
-train_df, test_df = train_test_split(df, test_size=0.3)
-test_df, valid_df = train_test_split(test_df, test_size=0.5)
-
-transform = A.Compose(
-    [
-        A.ChannelDropout(p=0.3),
-        A.RandomBrightnessContrast(p=0.3),
-        A.ColorJitter(p=0.3),
-    ]
-)
-
-train_dataset = MriDataset(train_df, transform)
-valid_dataset = MriDataset(valid_df)
-test_dataset = MriDataset(test_df)
-
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-valid_loader = DataLoader(valid_dataset, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=1)
-
-
-model = smp.Unet(
-    encoder_name="resnet18",
-    encoder_weights="imagenet",
-    in_channels=3,
-    classes=1,
-    activation="sigmoid",
-)
-model.to(device)
-
-LOGGER.info(f"Loaded model into device {device}")
+train_loader, valid_loader, test_loader = get_dataloaders(batch_size)
+model = get_model()
 
 
 def training_loop(
@@ -105,11 +42,13 @@ def training_loop(
             model.train()
             for i, data in enumerate(tqdm(train_loader)):
                 img, mask = data
-                img, mask = img.to(device), mask.int().to(device)
+                img, mask = img.to(device), mask.to(device)
+                # img, mask = img.to(device), mask.int().to(device)
+
                 predictions = model(img)
                 predictions = predictions.squeeze(1)
                 loss = loss_fn(predictions, mask)
-                loss.requires_grad = True
+                # loss.requires_grad = True
 
                 running_loss += loss.item() * img.size(0)
                 loss.backward()
@@ -123,7 +62,9 @@ def training_loop(
                 running_valid_loss = 0
                 for i, data in enumerate(valid_loader):
                     img, mask = data
-                    img, mask = img.to(device), mask.int().to(device)
+                    img, mask = img.to(device), mask.to(device)
+                    # img, mask = img.to(device), mask.int().to(device)
+
                     predictions = model(img)
                     predictions = predictions.squeeze(1)
                     running_dice += dice_pytorch(predictions, mask).sum().item()
@@ -155,9 +96,9 @@ def training_loop(
     return history
 
 
-# loss_fn = BCE_dice
-loss_fn = Dice().to(device)
-loss_fn.requires_grad = True
+loss_fn = BCE_dice
+# loss_fn = Dice().to(device)
+# loss_fn.requires_grad = True
 
 optimizer = Adam(model.parameters(), lr=learning_rate)
 lr_scheduler = ReduceLROnPlateau(optimizer=optimizer, patience=2, factor=0.2)
@@ -178,6 +119,11 @@ model_export = {
     "loss_function": "BCE Dice",
 }
 
-torch.save(model_export, model_save_path)
+model_output_dir = output_path / f"model-{time.strftime('%Y%m%d-%H%M%S')}"
+model_output_dir.mkdir()
+torch.save(model_export, model_output_dir / "model.pth")
+LOGGER.info(f"Saved checkpoint to {model_output_dir}")
+
+save_results(history, model_output_dir)
 
 LOGGER.info("Results\n", json.dumps(history))
