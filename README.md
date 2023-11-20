@@ -5,9 +5,9 @@ Dataset used: https://www.kaggle.com/datasets/mateuszbuda/lgg-mri-segmentation
 
 # TODO
 
-- [-] Implement post-processing techniques
-  - [-] CRF
-  - [-] MRF
-  - [-] Connected components analysis
-- [-] Try different loss functions
-- [-] Try different data augmentation techniques
+
+# Experimental analysis
+Models => UNet, UNet++, FCN
+Encoders => different resnet, attention based encoders
+Data augmentation techniques => Read about different technqiues
+Post processing => try with and without CRFs

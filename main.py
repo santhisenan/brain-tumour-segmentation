@@ -17,6 +17,8 @@ from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch, save_results
 from config import device, batch_size, epochs, learning_rate, output_path
 from model import get_model
 
+logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=logging.INFO)
+
 LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
@@ -126,4 +128,4 @@ LOGGER.info(f"Saved checkpoint to {model_output_dir}")
 
 save_results(history, model_output_dir)
 
-LOGGER.info("Results\n", json.dumps(history))
+LOGGER.info("Finished")
