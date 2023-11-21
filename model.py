@@ -5,16 +5,25 @@ import logging
 LOGGER = logging.getLogger(__name__)
 
 
-def get_model(model_name="unet", encoder_name="resnet18"):
+def get_model(model_name="unet", encoder_name="resnet18", pretrained=True):
     model = None
 
     if model_name == "unet":
-        model = smp.Unet(
-            encoder_name=encoder_name,
-            encoder_weights="imagenet",
-            in_channels=3,
-            classes=1,
-            activation="sigmoid",
+        model = (
+            smp.Unet(
+                encoder_name=encoder_name,
+                encoder_weights="imagenet",
+                in_channels=3,
+                classes=1,
+                activation="sigmoid",
+            )
+            if pretrained
+            else smp.Unet(
+                encoder_name=encoder_name,
+                in_channels=3,
+                classes=1,
+                activation="sigmoid",
+            )
         )
     elif model_name == "unet++":
         model = smp.UnetPlusPlus(encoder_name=encoder_name, activation="sigmoid")
