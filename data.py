@@ -64,9 +64,9 @@ def get_dataloaders(batch_size):
 
     transform = A.Compose(
         [
-            A.ChannelDropout(p=0.3),
-            A.RandomBrightnessContrast(p=0.3),
-            A.ColorJitter(p=0.3),
+            # A.ChannelDropout(p=0.3),
+            # A.RandomBrightnessContrast(p=0.3),
+            # A.ColorJitter(p=0.3),
         ]
     )
 
