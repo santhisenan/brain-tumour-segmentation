@@ -11,3 +11,7 @@ Models => UNet, UNet++, FCN
 Encoders => different resnet, attention based encoders
 Data augmentation techniques => Read about different technqiues
 Post processing => try with and without CRFs
+
+
+# Notes
+- Accuracy improved for baseline without transforms
