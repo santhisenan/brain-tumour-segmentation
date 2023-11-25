@@ -25,12 +25,23 @@ def get_model(model_name="unet", encoder_name="resnet18", pretrained=True):
                 activation="sigmoid",
             )
         )
-    elif model_name == "unet++":
-        model = smp.UnetPlusPlus(encoder_name=encoder_name, activation="sigmoid")
-    elif model_name == "fpn":
-        model = smp.FPN(encoder_name=encoder_name, activation="sigmoid")
+    # elif model_name == "unet++":
+    #     model = smp.UnetPlusPlus(encoder_name=encoder_name, activation="sigmoid")
+    # elif model_name == "fpn":
+    #     model = smp.FPN(encoder_name=encoder_name, activation="sigmoid")
     elif model_name == "deeplabv3+":
-        model = smp.DeepLabV3Plus(encoder_name=encoder_name, activation="sigmoid")
+        model = (
+            smp.DeepLabV3Plus(
+                encoder_name=encoder_name,
+                encoder_weights="imagenet",
+                activation="sigmoid",
+            )
+            if pretrained
+            else smp.DeepLabV3Plus(
+                encoder_name=encoder_name,
+                activation="sigmoid",
+            )
+        )
     else:
         raise ValueError(f"Invalid model name: {model_name}")
 

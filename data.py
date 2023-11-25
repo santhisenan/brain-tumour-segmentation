@@ -60,15 +60,17 @@ def get_dataloaders(batch_size):
     df = pd.merge(df, filenames_df, on="Patient")
 
     train_df, test_df = train_test_split(df, test_size=0.3)
-    test_df, valid_df = train_test_split(test_df, test_size=0.5)
+    test_df, valid_df = train_test_split(test_df, test_size=0.1)
 
     transform = A.Compose(
         [
-            # A.ChannelDropout(p=0.3),
-            # A.RandomBrightnessContrast(p=0.3),
-            # A.ColorJitter(p=0.3),
+            A.RandomCrop(width=256, height=256),
+            A.RandomBrightnessContrast(p=0.2),
+            A.AdvancedBlur(p=0.5),
         ]
     )
+
+    # transform = v2.Compose([])
 
     train_dataset = MriDataset(train_df, transform)
     valid_dataset = MriDataset(valid_df)

@@ -30,6 +30,33 @@ def dice_pytorch(predictions: torch.Tensor, labels: torch.Tensor, e: float = 1e-
     )
 
 
+def dice_loss(output, target):
+    soft_dice = 1 - dice_pytorch(output, target)
+    return soft_dice
+
+
+def dice_coefficient(predictions, labels, e=1e-7):
+    intersection = torch.sum(predictions * labels)
+    union = torch.sum(predictions) + torch.sum(labels)
+
+    dice_score = (2.0 * intersection + e) / (union + e)
+    return dice_score
+
+
+class DiceLoss(torch.nn.Module):
+    def __init__(self, epsilon=1e-7):
+        super().__init__()
+        self.epsilon = epsilon
+
+    def forward(self, predicted, target):
+        return 1 - dice_coefficient(predicted, target)
+
+
+def BCE(output, target):
+    bce = torch.nn.functional.binary_cross_entropy(output, target)
+    return bce
+
+
 def BCE_dice(output, target, alpha=0.01):
     bce = torch.nn.functional.binary_cross_entropy(output, target)
     soft_dice = 1 - dice_pytorch(output, target).mean()

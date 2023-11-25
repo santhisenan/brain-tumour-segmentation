@@ -7,12 +7,20 @@ from tqdm.contrib.logging import logging_redirect_tqdm
 import torch
 from torch.optim import Adam
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
+from torchvision.transforms import v2
 from torchmetrics.classification import Dice
 
 from data import get_dataloaders
 from optimization import EarlyStopping
-from loss_metrics import BCE_dice, iou_pytorch, dice_pytorch, save_results
+from loss_metrics import (
+    dice_loss,
+    DiceLoss,
+    BCE,
+    BCE_dice,
+    iou_pytorch,
+    dice_pytorch,
+    save_results,
+)
 from config import (
     device,
     batch_size,
@@ -22,7 +30,10 @@ from config import (
     model_name,
     encoder_name,
     tag,
+    pretrained,
+    loss,
 )
+from crf import dense_crf
 from model import get_model
 
 logging.basicConfig(format="%(asctime)s %(levelname)s:%(message)s", level=logging.INFO)
@@ -31,7 +42,9 @@ LOGGER = logging.getLogger(__name__)
 LOGGER.setLevel(logging.INFO)
 
 train_loader, valid_loader, test_loader = get_dataloaders(batch_size)
-model = get_model(model_name=model_name, encoder_name=encoder_name)
+model = get_model(
+    model_name=model_name, encoder_name=encoder_name, pretrained=pretrained
+)
 
 
 def training_loop(
@@ -52,6 +65,7 @@ def training_loop(
             model.train()
             for i, data in enumerate(tqdm(train_loader)):
                 img, mask = data
+                # img, mask = mixup(img, mask)
                 img, mask = img.to(device), mask.to(device)
                 # img, mask = img.to(device), mask.int().to(device)
 
@@ -60,7 +74,7 @@ def training_loop(
                 loss = loss_fn(predictions, mask)
                 # loss.requires_grad = True
 
-                running_loss += loss.item() * img.size(0)
+                running_loss += loss.mean().item() * img.size(0)
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
@@ -106,7 +120,15 @@ def training_loop(
     return history
 
 
-loss_fn = BCE_dice
+if loss == "BCE_Dice":
+    loss_fn = BCE_dice
+elif loss == "BCE":
+    loss_fn = BCE
+elif loss == "Dice":
+    loss_fn = DiceLoss().to(device)
+else:
+    raise ValueError("Wrong value set for name of loss function to use")
+
 # loss_fn = Dice().to(device)
 # loss_fn.requires_grad = True
 

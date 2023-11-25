@@ -3,6 +3,8 @@ model*.pth
 log*.txt
 nohup.out
 outputs/
+result.csv
+*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
