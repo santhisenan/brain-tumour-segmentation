@@ -5,6 +5,7 @@ nohup.out
 outputs/
 result.csv
 *.png
+*.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
