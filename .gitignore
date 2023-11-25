@@ -4,7 +4,7 @@ log*.txt
 nohup.out
 outputs/
 result.csv
-*.png
+# *.png
 *.csv
 
 # Byte-compiled / optimized / DLL files
